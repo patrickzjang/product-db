@@ -1,8 +1,8 @@
 import { createHash } from "crypto";
 
 const AUTH_COOKIE = "jst_auth";
-const MASTER_USERNAME = process.env.MASTER_USERNAME || "509040";
-const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "509040";
+const MASTER_USERNAME = process.env.MASTER_USERNAME || "";
+const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "";
 const TOKEN = createHash("sha256")
   .update(`${MASTER_USERNAME}:${MASTER_PASSWORD}:v1`)
   .digest("hex");
