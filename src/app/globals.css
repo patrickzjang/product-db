@@ -144,6 +144,56 @@ body {
   color: var(--text);
 }
 
+.login-page {
+  min-height: 100vh;
+  max-width: none;
+  margin: 0;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  background: #09122a;
+}
+
+.login-panel {
+  width: 100%;
+  max-width: 620px;
+}
+
+.login-card {
+  padding: 28px;
+}
+
+.login-brand {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.login-logo {
+  width: 96px;
+  height: auto;
+  display: block;
+  margin: 0 auto 10px;
+}
+
+.login-title {
+  margin: 0 0 8px;
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+
+.login-subtitle {
+  margin-bottom: 18px;
+}
+
+.login-row {
+  justify-content: center;
+}
+
+.login-row input {
+  min-width: 0;
+  flex: 1;
+}
+
 h1, h2 {
   margin: 0 0 8px 0;
   letter-spacing: -0.02em;
@@ -668,6 +718,22 @@ button.ghost {
     margin: 24px auto;
     width: calc(100% - 24px);
   }
+
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-card {
+    padding: 20px;
+  }
+
+  .login-title {
+    font-size: 1.2rem;
+  }
+
+  .login-logo {
+    width: 80px;
+  }
 }
 
 @media (max-width: 600px) {
@@ -688,6 +754,16 @@ button.ghost {
   .dropdown-btn {
     width: 72px;
     font-size: 0.6rem;
+  }
+
+  .login-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .login-row input,
+  .login-row button {
+    width: 100%;
   }
 }
 

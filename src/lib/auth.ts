@@ -20,6 +20,7 @@ function parseCookies(raw: string | null): Record<string, string> {
 }
 
 export function isValidLogin(username: string, password: string): boolean {
+  if (!MASTER_USERNAME || !MASTER_PASSWORD) return false;
   return username === MASTER_USERNAME && password === MASTER_PASSWORD;
 }
 
@@ -32,6 +33,7 @@ export function getAuthCookieValue() {
 }
 
 export function isAuthenticated(req: Request): boolean {
+  if (!MASTER_USERNAME || !MASTER_PASSWORD) return false;
   const cookies = parseCookies(req.headers.get("cookie"));
   return cookies[AUTH_COOKIE] === TOKEN;
 }

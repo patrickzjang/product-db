@@ -48,20 +48,24 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="page">
-      <section className="panel">
-        <div className="card auth-card">
-          <h2>Login</h2>
-          <p className="subtitle">Enter your account to continue.</p>
+    <main className="page login-page">
+      <section className="panel login-panel">
+        <div className="card auth-card login-card">
+          <div className="login-brand">
+            <img src="/assets/new-logo-2026.png" alt="Cloud Vision" className="login-logo" />
+            <h1 className="login-title">Cloud Vision Product Management</h1>
+            <p className="subtitle login-subtitle">Sign in to continue.</p>
+          </div>
           {checking ? (
             <div className="status">Checking session...</div>
           ) : (
             <>
-              <div className="auth-row">
+              <div className="auth-row login-row">
                 <input
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Username"
+                  autoComplete="username"
                   disabled={loading}
                 />
                 <input
@@ -69,6 +73,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
+                  autoComplete="current-password"
                   disabled={loading}
                 />
                 <button className="primary" onClick={login} disabled={loading}>
