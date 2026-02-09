@@ -592,6 +592,9 @@ button.ghost {
   display: block;
   text-align: center;
   white-space: normal;
+  font-size: 0.78rem;
+  line-height: 1.1;
+  padding: 6px 6px;
 }
 
 .thumb-wrap a {
