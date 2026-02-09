@@ -493,7 +493,15 @@ button.ghost {
   min-width: 120px;
   max-width: 120px;
   text-align: center;
+}
+
+.results-table th.thumb-col {
   white-space: nowrap;
+}
+
+.results-table td.thumb-col {
+  white-space: normal;
+  overflow: hidden;
 }
 
 .thumb-wrap .thumb {
@@ -571,9 +579,17 @@ button.ghost {
   width: 100%;
   margin-top: 6px;
   box-shadow: none;
+  max-width: 100%;
+}
+
+.results-table .download-menu[open] .download-pop {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
 }
 
 .results-table .download-pop button {
+  display: block;
   text-align: center;
   white-space: normal;
 }
