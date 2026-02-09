@@ -552,6 +552,32 @@ button.ghost {
   background: #172852;
 }
 
+/* Keep table dropdown inside the PROD_JPG column to avoid clipping/overflow. */
+.results-table .download-menu {
+  width: 100%;
+}
+
+.results-table .download-trigger {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+.results-table .download-pop {
+  position: static;
+  right: auto;
+  top: auto;
+  min-width: 0;
+  width: 100%;
+  margin-top: 6px;
+  box-shadow: none;
+}
+
+.results-table .download-pop button {
+  text-align: center;
+  white-space: normal;
+}
+
 .thumb-wrap a {
   text-decoration: none;
   color: var(--accent-2);
