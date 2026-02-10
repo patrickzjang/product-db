@@ -22,6 +22,20 @@ type FileItem = {
 type ImageRef = { name: string; url: string };
 
 type Row = Record<string, any>;
+const HIDDEN_SEARCH_COLUMNS = new Set(["CBV", "VAT", "COST"]);
+
+function getVisibleTableHeaders(row: Row): string[] {
+  const headers = Object.keys(row).filter(
+    (h) => h !== "product_images" && !HIDDEN_SEARCH_COLUMNS.has(h)
+  );
+  const yearIdx = headers.indexOf("YEAR");
+  const monthIdx = headers.indexOf("MONTH");
+  if (yearIdx !== -1 && monthIdx !== -1 && monthIdx !== yearIdx + 1) {
+    headers.splice(monthIdx, 1);
+    headers.splice(yearIdx + 1, 0, "MONTH");
+  }
+  return headers;
+}
 
 function parseSku(filename: string): string | null {
   const base = filename.replace(/\.[^.]+$/, "");
@@ -360,7 +374,7 @@ export default function Home() {
 
   const renderTable = () => {
     if (sortedRows.length === 0) return null;
-    const headers = Object.keys(sortedRows[0]).filter((h) => h !== "product_images");
+    const headers = getVisibleTableHeaders(sortedRows[0]);
 
     if (isMobile) {
       return (

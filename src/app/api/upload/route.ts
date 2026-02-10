@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { BUCKET, SKU_COLUMN } from "@/lib/config";
 import { isAuthenticated } from "@/lib/auth";
+import { isMaintenanceMode } from "@/lib/maintenance";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import {
   SUPABASE_SERVICE_ROLE_KEY,
@@ -13,6 +14,9 @@ import {
 
 export async function POST(req: Request) {
   try {
+    if (isMaintenanceMode()) {
+      return NextResponse.json({ error: "Maintenance mode: upload is temporarily disabled." }, { status: 503 });
+    }
     if (!isAuthenticated(req)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
