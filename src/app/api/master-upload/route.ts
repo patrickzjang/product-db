@@ -110,6 +110,11 @@ function chunk<T>(arr: T[], size: number) {
   return out;
 }
 
+function isMissingImportStateTableError(message: string) {
+  const m = message.toLowerCase();
+  return m.includes("master_import_state") && (m.includes("schema cache") || m.includes("could not find the table"));
+}
+
 function sanitizeFilename(name: string) {
   return name.replace(/[^A-Za-z0-9._-]/g, "_");
 }
@@ -212,12 +217,19 @@ export async function POST(req: Request) {
     const viewTable = tableView.includes(".") ? tableView.split(".")[1] : tableView;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
+    let stateWarning: string | null = null;
     const { data: prevState, error: stateErr } = await supabase
       .from("master_import_state")
       .select("date_key,file_name")
       .eq("brand", brand)
       .maybeSingle();
-    if (stateErr) throw new Error(stateErr.message);
+    if (stateErr) {
+      if (isMissingImportStateTableError(stateErr.message)) {
+        stateWarning = "master_import_state table not found; version-skip check disabled for now.";
+      } else {
+        throw new Error(stateErr.message);
+      }
+    }
     if (prevState?.date_key && String(prevState.date_key) >= dateKey) {
       return NextResponse.json({
         ok: true,
@@ -226,6 +238,7 @@ export async function POST(req: Request) {
         file: file.name,
         archive_bucket: archive.bucket,
         archive_path: archive.path,
+        state_warning: stateWarning,
         reason: `File date ${dateKey} is not newer than last imported ${prevState.date_key}`,
       });
     }
@@ -299,9 +312,15 @@ export async function POST(req: Request) {
       },
       { onConflict: "brand" }
     );
-    if (upsertErr) throw new Error(upsertErr.message);
+    if (upsertErr) {
+      if (isMissingImportStateTableError(upsertErr.message)) {
+        stateWarning = stateWarning || "master_import_state table not found; import state was not saved.";
+      } else {
+        throw new Error(upsertErr.message);
+      }
+    }
 
-    return NextResponse.json({ ok: true, ...summary });
+    return NextResponse.json({ ok: true, ...summary, state_warning: stateWarning });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 400 });

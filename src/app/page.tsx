@@ -35,6 +35,7 @@ type MasterUploadResult = {
   error?: string;
   archive_bucket?: string;
   archive_path?: string;
+  state_warning?: string;
 };
 
 function getVisibleTableHeaders(row: Row): string[] {
@@ -241,6 +242,7 @@ export default function Home() {
           reason: payload?.reason,
           archive_bucket: payload?.archive_bucket,
           archive_path: payload?.archive_path,
+          state_warning: payload?.state_warning,
         });
       } catch (err: any) {
         results.push({ file: file.name, status: "error", error: err?.message || "Unexpected error" });
@@ -854,6 +856,7 @@ export default function Home() {
                       {r.status === "skipped" && `Skipped: ${r.reason || "Not newer version"}`}
                       {r.status === "error" && `Error: ${r.error || "Unknown error"}`}
                       {r.status !== "error" && r.archive_bucket && r.archive_path && ` | Archived: ${r.archive_bucket}/${r.archive_path}`}
+                      {r.status !== "error" && r.state_warning && ` | Warning: ${r.state_warning}`}
                     </div>
                   </li>
                 ))}
