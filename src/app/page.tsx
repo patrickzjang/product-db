@@ -33,6 +33,8 @@ type MasterUploadResult = {
   unchanged?: number;
   reason?: string;
   error?: string;
+  archive_bucket?: string;
+  archive_path?: string;
 };
 
 function getVisibleTableHeaders(row: Row): string[] {
@@ -237,6 +239,8 @@ export default function Home() {
           updated: payload?.updated,
           unchanged: payload?.unchanged,
           reason: payload?.reason,
+          archive_bucket: payload?.archive_bucket,
+          archive_path: payload?.archive_path,
         });
       } catch (err: any) {
         results.push({ file: file.name, status: "error", error: err?.message || "Unexpected error" });
@@ -849,6 +853,7 @@ export default function Home() {
                       {r.status === "imported" && `Imported (${r.brand || "-"}): total=${r.total || 0}, inserted=${r.inserted || 0}, updated=${r.updated || 0}, unchanged=${r.unchanged || 0}`}
                       {r.status === "skipped" && `Skipped: ${r.reason || "Not newer version"}`}
                       {r.status === "error" && `Error: ${r.error || "Unknown error"}`}
+                      {r.status !== "error" && r.archive_bucket && r.archive_path && ` | Archived: ${r.archive_bucket}/${r.archive_path}`}
                     </div>
                   </li>
                 ))}

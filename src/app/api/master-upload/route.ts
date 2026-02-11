@@ -8,6 +8,7 @@ import { BRAND_VIEWS } from "@/lib/config";
 import { SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, requireServerConfig } from "@/lib/server-supabase";
 
 const FILE_RE = /^MASTER_(PAN|ARENA|DAYBREAK|HEELCARE)_(\d{6})\.(csv|xlsx|xls)$/i;
+const MASTER_UPLOAD_BUCKET = process.env.MASTER_UPLOAD_BUCKET || "master-upload-files";
 const REQUIRED_HEADERS = [
   "BRAND",
   "GROUP",
@@ -109,6 +110,76 @@ function chunk<T>(arr: T[], size: number) {
   return out;
 }
 
+function sanitizeFilename(name: string) {
+  return name.replace(/[^A-Za-z0-9._-]/g, "_");
+}
+
+async function createMasterUploadBucket() {
+  const createRes = await fetch(`${SUPABASE_URL}/storage/v1/bucket`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id: MASTER_UPLOAD_BUCKET,
+      name: MASTER_UPLOAD_BUCKET,
+      public: false,
+      file_size_limit: 52428800,
+      allowed_mime_types: [
+        "text/csv",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ],
+    }),
+  });
+
+  if (!createRes.ok) {
+    const body = await createRes.text().catch(() => "");
+    if (!body.toLowerCase().includes("already")) {
+      throw new Error(body || "Failed to create master upload bucket");
+    }
+  }
+}
+
+async function archiveUploadedFile(file: File, brand: string, dateKey: string) {
+  const safe = sanitizeFilename(file.name);
+  const storagePath = `${brand}/${dateKey}/${Date.now()}_${safe}`;
+  const upload = async () =>
+    fetch(`${SUPABASE_URL}/storage/v1/object/${MASTER_UPLOAD_BUCKET}/${storagePath}`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": file.type || "application/octet-stream",
+        "x-upsert": "false",
+      },
+      body: file,
+    });
+
+  let res = await upload();
+  if (res.ok) return { bucket: MASTER_UPLOAD_BUCKET, path: storagePath };
+
+  const body = await res.text().catch(() => "");
+  const msg = body.toLowerCase();
+  const missingBucket =
+    msg.includes("bucket not found") ||
+    msg.includes("not found") ||
+    msg.includes("does not exist");
+  if (!missingBucket) {
+    throw new Error(body || "Failed to archive uploaded file");
+  }
+
+  await createMasterUploadBucket();
+  res = await upload();
+  if (!res.ok) {
+    const retryBody = await res.text().catch(() => "");
+    throw new Error(retryBody || "Failed to archive uploaded file after bucket creation");
+  }
+  return { bucket: MASTER_UPLOAD_BUCKET, path: storagePath };
+}
+
 export async function POST(req: Request) {
   try {
     if (isMaintenanceMode()) {
@@ -135,6 +206,7 @@ export async function POST(req: Request) {
     const brand = m[1].toUpperCase();
     const dateKey = parseDateKey(m[2]);
     if (!dateKey) return NextResponse.json({ error: "Invalid date in filename" }, { status: 400 });
+    const archive = await archiveUploadedFile(file, brand, dateKey);
 
     const tableView = BRAND_VIEWS[brand as keyof typeof BRAND_VIEWS];
     const viewTable = tableView.includes(".") ? tableView.split(".")[1] : tableView;
@@ -152,6 +224,8 @@ export async function POST(req: Request) {
         status: "skipped",
         brand,
         file: file.name,
+        archive_bucket: archive.bucket,
+        archive_path: archive.path,
         reason: `File date ${dateKey} is not newer than last imported ${prevState.date_key}`,
       });
     }
@@ -208,6 +282,8 @@ export async function POST(req: Request) {
       updated: toUpdate.length,
       unchanged,
       dateKey,
+      archive_bucket: archive.bucket,
+      archive_path: archive.path,
     };
 
     const { error: upsertErr } = await supabase.from("master_import_state").upsert(
