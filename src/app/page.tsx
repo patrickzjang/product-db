@@ -729,6 +729,22 @@ export default function Home() {
               <hr className="section-sep" />
               <h2>Master Data Update</h2>
               <p className="subtitle">Upload CSV/XLS/XLSX named like <code>MASTER_PAN_DDMMYY.csv</code>. New version only, merge mode (insert new + update changed fields).</p>
+              <div className="template-guide">
+                <div className="template-guide-title">Template Guide</div>
+                <div className="template-guide-sub">
+                  Download blank template (headers only), fill rows, then rename file to
+                  {" "}
+                  <code>MASTER_(PAN|ARENA|DAYBREAK|HEELCARE)_DDMMYY</code>.
+                </div>
+                <div className="template-actions">
+                  <a className="ghost template-link" href="/templates/MASTER_TEMPLATE.csv" download>
+                    Download CSV Template
+                  </a>
+                  <a className="ghost template-link" href="/templates/MASTER_TEMPLATE.xlsx" download>
+                    Download XLSX Template
+                  </a>
+                </div>
+              </div>
               <div className="actions">
                 <input
                   type="file"

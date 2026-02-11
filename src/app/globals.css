@@ -242,6 +242,39 @@ h1, h2 {
   gap: 10px;
 }
 
+.template-guide {
+  margin: 6px 0 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #0d1730;
+}
+
+.template-guide-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.template-guide-sub {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.template-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.template-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 button {
   border: none;
   border-radius: 10px;
