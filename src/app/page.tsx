@@ -36,6 +36,11 @@ function getVisibleTableHeaders(row: Row): string[] {
   return headers;
 }
 
+function getHeaderWidth(header: string): string {
+  const chars = Math.max(8, header.length + 2);
+  return `${chars}ch`;
+}
+
 function parseSku(filename: string): string | null {
   const base = filename.replace(/\.[^.]+$/, "");
   const idx = base.lastIndexOf("_");
@@ -374,6 +379,7 @@ export default function Home() {
   const renderTable = () => {
     if (sortedRows.length === 0) return null;
     const headers = getVisibleTableHeaders(sortedRows[0]);
+    const headerWidths = Object.fromEntries(headers.map((h) => [h, getHeaderWidth(h)]));
 
     if (isMobile) {
       return (
@@ -471,6 +477,7 @@ export default function Home() {
               <th
                 key={h}
                 className="sortable"
+                style={{ width: headerWidths[h], minWidth: headerWidths[h] }}
                 data-sort={sortKey === h ? sortDir : undefined}
                 onClick={() => {
                   if (sortKey === h) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -511,7 +518,7 @@ export default function Home() {
                     </span>
                   </td>
                   {headers.map((h) => (
-                    <td key={h}>{row[h] ?? ""}</td>
+                    <td key={h} style={{ width: headerWidths[h], minWidth: headerWidths[h] }}>{row[h] ?? ""}</td>
                   ))}
                   <td className="thumb-wrap thumb-col">
                     {img ? (
@@ -558,7 +565,7 @@ export default function Home() {
                     <tr key={`${variation}-${i}`} className="sub-row">
                       <td className="thumb-col"></td>
                       {headers.map((h) => (
-                        <td key={`${h}-${i}`}>{item[h] ?? ""}</td>
+                        <td key={`${h}-${i}`} style={{ width: headerWidths[h], minWidth: headerWidths[h] }}>{item[h] ?? ""}</td>
                       ))}
                       <td></td>
                     </tr>

@@ -333,7 +333,7 @@ button.ghost {
   min-width: 100%;
   border-collapse: collapse;
   font-size: 0.92rem;
-  table-layout: auto;
+  table-layout: fixed;
 }
 
 .results-table th,
@@ -375,8 +375,8 @@ button.ghost {
 }
 
 .results-table td:not(.thumb-col) {
-  word-break: normal;
-  overflow-wrap: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .arrow-cell {
