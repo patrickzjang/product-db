@@ -47,14 +47,22 @@ export function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-export async function supabaseRestGet(path: string, searchParams?: URLSearchParams) {
+export async function supabaseRestGet(
+  path: string,
+  searchParams?: URLSearchParams,
+  options?: { count?: "exact" | "planned" | "none" }
+) {
+  const countMode = options?.count ?? "none";
   const url = `${SUPABASE_URL}/rest/v1/${path}${searchParams ? `?${searchParams.toString()}` : ""}`;
+  const headers: Record<string, string> = {
+    apikey: SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+  };
+  if (countMode !== "none") {
+    headers.Prefer = `count=${countMode}`;
+  }
   const res = await fetch(url, {
-    headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      Prefer: "count=exact",
-    },
+    headers,
     cache: "no-store",
   });
 
@@ -76,7 +84,7 @@ export async function supabaseRestGet(path: string, searchParams?: URLSearchPara
     throw new Error(message);
   }
 
-  return { data, count: parseCount(res.headers.get("content-range")) };
+  return { data, count: countMode === "none" ? 0 : parseCount(res.headers.get("content-range")) };
 }
 
 export async function callUpdateProductImages(params: {

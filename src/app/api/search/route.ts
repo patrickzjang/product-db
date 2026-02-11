@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       vParams.set(VARIATION_COLUMN, `ilike.${encodeIlike(query)}`);
     }
 
-    const { data: variations, count: total } = await supabaseRestGet(variationTable, vParams);
+    const { data: variations, count: total } = await supabaseRestGet(variationTable, vParams, { count: "planned" });
     const variationList = Array.isArray(variations)
       ? variations.map((r) => r?.[VARIATION_COLUMN]).filter(Boolean).map(String)
       : [];
@@ -62,14 +62,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ rows: [], total: total || 0, pageCount, shown: 0 });
     }
 
-    const chunks = chunkArray(variationList, 120);
+    const chunks = chunkArray(variationList, 250);
     const chunkResults = await Promise.all(
       chunks.map(async (chunk) => {
         const pParams = new URLSearchParams();
         pParams.set("select", "*");
         pParams.set(VARIATION_COLUMN, buildInFilter(chunk));
         pParams.set("order", `${VARIATION_COLUMN}.asc`);
-        const { data } = await supabaseRestGet(viewTable, pParams);
+        const { data } = await supabaseRestGet(viewTable, pParams, { count: "none" });
         return Array.isArray(data) ? data : [];
       })
     );
