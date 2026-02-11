@@ -329,10 +329,11 @@ button.ghost {
 }
 
 .results-table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 0.92rem;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .results-table th,
@@ -374,9 +375,8 @@ button.ghost {
 }
 
 .results-table td:not(.thumb-col) {
-  max-width: 220px;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .arrow-cell {
