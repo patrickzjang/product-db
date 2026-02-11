@@ -26,6 +26,7 @@ const REQUIRED_HEADERS = [
 ] as const;
 
 type Row = Record<string, string | null>;
+type Header = (typeof REQUIRED_HEADERS)[number];
 
 function parseDateKey(ddmmyy: string) {
   const dd = Number(ddmmyy.slice(0, 2));
@@ -91,19 +92,6 @@ async function extractRowsFromFile(file: File, brand: string) {
   return rows;
 }
 
-function changedColumns(existing: Record<string, unknown>, incoming: Row) {
-  const patch: Record<string, unknown> = {};
-  for (const h of REQUIRED_HEADERS) {
-    if (h === "ITEM_SKU") continue;
-    const a = existing[h];
-    const b = incoming[h];
-    const av = a === null || a === undefined || a === "" ? null : String(a);
-    const bv = b === null || b === undefined || b === "" ? null : String(b);
-    if (av !== bv) patch[h] = b;
-  }
-  return patch;
-}
-
 function chunk<T>(arr: T[], size: number) {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
@@ -113,6 +101,58 @@ function chunk<T>(arr: T[], size: number) {
 function isMissingImportStateTableError(message: string) {
   const m = message.toLowerCase();
   return m.includes("master_import_state") && (m.includes("schema cache") || m.includes("could not find the table"));
+}
+
+function parseMissingColumn(message: string): Header | null {
+  const direct = message.match(/column\s+[A-Za-z0-9_."-]+\.(\w+)\s+does not exist/i);
+  const schemaCache = message.match(/Could not find the ['"](\w+)['"] column/i);
+  const col = (direct?.[1] || schemaCache?.[1] || "").toUpperCase();
+  return (REQUIRED_HEADERS as readonly string[]).includes(col) ? (col as Header) : null;
+}
+
+async function resolveWritableHeaders(supabase: any, viewTable: string) {
+  const headers: Header[] = [...REQUIRED_HEADERS];
+  while (true) {
+    const selectCols = ["ITEM_SKU", ...headers.filter((h) => h !== "ITEM_SKU")];
+    const { error } = await supabase
+      .schema("public")
+      .from(viewTable)
+      .select(selectCols.join(","))
+      .limit(1);
+
+    if (!error) return headers;
+
+    const missing = parseMissingColumn(error.message);
+    if (!missing || missing === "ITEM_SKU") {
+      throw new Error(error.message);
+    }
+    const idx = headers.indexOf(missing);
+    if (idx === -1) {
+      throw new Error(error.message);
+    }
+    headers.splice(idx, 1);
+  }
+}
+
+function projectRowByHeaders(row: Row, headers: Header[]) {
+  const out: Record<string, string | null> = {};
+  for (const h of headers) {
+    out[h] = row[h];
+  }
+  return out;
+}
+
+function changedColumnsByHeaders(existing: Record<string, unknown>, incoming: Row, headers: Header[]) {
+  const patch: Record<string, unknown> = {};
+  for (const h of headers) {
+    if (h === "ITEM_SKU") continue;
+    const a = existing[h];
+    const b = incoming[h];
+    const av = a === null || a === undefined || a === "" ? null : String(a);
+    const bv = b === null || b === undefined || b === "" ? null : String(b);
+    if (av !== bv) patch[h] = b;
+  }
+  return patch;
 }
 
 function sanitizeFilename(name: string) {
@@ -243,18 +283,25 @@ export async function POST(req: Request) {
       });
     }
 
+    const writableHeaders = await resolveWritableHeaders(supabase, viewTable);
     const rows = await extractRowsFromFile(file, brand);
     const itemSkus = rows.map((r) => String(r.ITEM_SKU));
     const existing = new Map<string, Record<string, unknown>>();
+    const selectCols = ["ITEM_SKU", ...writableHeaders.filter((h) => h !== "ITEM_SKU")];
     for (const skus of chunk(itemSkus, 500)) {
       const { data, error } = await supabase
         .schema("public")
         .from(viewTable)
-        .select("ITEM_SKU,BRAND,GROUP,PARENTS_SKU,VARIATION_SKU,DESCRIPTION,BARCODE,PRICELIST,CBV,VAT,COST,YEAR,MONTH")
+        .select(selectCols.join(","))
         .in("ITEM_SKU", skus);
       if (error) throw new Error(error.message);
-      for (const r of data || []) {
-        if (r.ITEM_SKU) existing.set(String(r.ITEM_SKU), r as Record<string, unknown>);
+      for (const r of (data || []) as unknown[]) {
+        if (!r || typeof r !== "object") continue;
+        const rowObj = r as Record<string, unknown>;
+        const key = rowObj.ITEM_SKU;
+        if (key !== null && key !== undefined && key !== "") {
+          existing.set(String(key), rowObj);
+        }
       }
     }
 
@@ -267,14 +314,15 @@ export async function POST(req: Request) {
       if (!old) {
         toInsert.push(row);
       } else {
-        const patch = changedColumns(old, row);
+        const patch = changedColumnsByHeaders(old, row, writableHeaders);
         if (Object.keys(patch).length) toUpdate.push({ itemSku: key, patch });
         else unchanged += 1;
       }
     }
 
     for (const part of chunk(toInsert, 500)) {
-      const { error } = await supabase.schema("public").from(viewTable).insert(part);
+      const projected = part.map((r) => projectRowByHeaders(r, writableHeaders));
+      const { error } = await supabase.schema("public").from(viewTable).insert(projected);
       if (error) throw new Error(error.message);
     }
     for (const op of toUpdate) {

@@ -75,7 +75,7 @@ export default function Home() {
   const [searchStatus, setSearchStatus] = useState("No search yet.");
   const [searchInput, setSearchInput] = useState("");
   const [currentBrand, setCurrentBrand] = useState<Brand>("PAN");
-  const [activeTab, setActiveTab] = useState<"upload" | "search">("upload");
+  const [activeTab, setActiveTab] = useState<"upload" | "master" | "search">("upload");
   const [pageSize, setPageSize] = useState(100);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageCount, setPageCount] = useState(1);
@@ -681,6 +681,7 @@ export default function Home() {
 
           <div className="tabs">
             <button className={`tab ${activeTab === "upload" ? "active" : ""}`} onClick={() => setActiveTab("upload")}>Image Uploader</button>
+            <button className={`tab ${activeTab === "master" ? "active" : ""}`} onClick={() => setActiveTab("master")}>Master Data Update</button>
             <button className={`tab ${activeTab === "search" ? "active" : ""}`} onClick={() => setActiveTab("search")}>Search Products</button>
           </div>
 
@@ -732,7 +733,11 @@ export default function Home() {
                 ))}
               </ul>
 
-              <hr className="section-sep" />
+            </div>
+          )}
+
+          {activeTab === "master" && (
+            <div className="card">
               <h2>Master Data Update</h2>
               <p className="subtitle">Upload CSV/XLS/XLSX named like <code>MASTER_PAN_DDMMYY.csv</code>. New version only, merge mode (insert new + update changed fields).</p>
               <div className="template-guide">
