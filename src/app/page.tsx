@@ -22,17 +22,16 @@ type FileItem = {
 type ImageRef = { name: string; url: string };
 
 type Row = Record<string, any>;
-const HIDDEN_SEARCH_COLUMNS = new Set(["CBV", "VAT", "COST"]);
+const HIDDEN_SEARCH_COLUMNS = new Set(["CBV", "VAT", "COST", "MONTH", "BARCODE"]);
 
 function getVisibleTableHeaders(row: Row): string[] {
   const headers = Object.keys(row).filter(
     (h) => h !== "product_images" && !HIDDEN_SEARCH_COLUMNS.has(h)
   );
-  const yearIdx = headers.indexOf("YEAR");
-  const monthIdx = headers.indexOf("MONTH");
-  if (yearIdx !== -1 && monthIdx !== -1 && monthIdx !== yearIdx + 1) {
-    headers.splice(monthIdx, 1);
-    headers.splice(yearIdx + 1, 0, "MONTH");
+  const brandIdx = headers.indexOf("BRAND");
+  if (brandIdx > 0) {
+    headers.splice(brandIdx, 1);
+    headers.unshift("BRAND");
   }
   return headers;
 }
