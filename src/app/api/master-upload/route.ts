@@ -225,7 +225,23 @@ async function archiveUploadedFile(file: File, brand: string, dateKey: string) {
   return { bucket: MASTER_UPLOAD_BUCKET, path: storagePath };
 }
 
+async function deleteArchivedFile(archive: { bucket: string; path: string } | null) {
+  if (!archive) return;
+  try {
+    await fetch(`${SUPABASE_URL}/storage/v1/object/${archive.bucket}/${encodeURI(archive.path)}`, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+    });
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
 export async function POST(req: Request) {
+  let archive: { bucket: string; path: string } | null = null;
   try {
     if (isMaintenanceMode()) {
       return NextResponse.json({ error: "Maintenance mode: master update is temporarily disabled." }, { status: 503 });
@@ -251,7 +267,7 @@ export async function POST(req: Request) {
     const brand = m[1].toUpperCase();
     const dateKey = parseDateKey(m[2]);
     if (!dateKey) return NextResponse.json({ error: "Invalid date in filename" }, { status: 400 });
-    const archive = await archiveUploadedFile(file, brand, dateKey);
+    archive = await archiveUploadedFile(file, brand, dateKey);
 
     const tableView = BRAND_VIEWS[brand as keyof typeof BRAND_VIEWS];
     const viewTable = tableView.includes(".") ? tableView.split(".")[1] : tableView;
@@ -271,13 +287,12 @@ export async function POST(req: Request) {
       }
     }
     if (prevState?.date_key && String(prevState.date_key) >= dateKey) {
+      await deleteArchivedFile(archive);
       return NextResponse.json({
         ok: true,
         status: "skipped",
         brand,
         file: file.name,
-        archive_bucket: archive.bucket,
-        archive_path: archive.path,
         state_warning: stateWarning,
         reason: `File date ${dateKey} is not newer than last imported ${prevState.date_key}`,
       });
@@ -370,6 +385,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, ...summary, state_warning: stateWarning });
   } catch (err) {
+    await deleteArchivedFile(archive);
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 400 });
   }

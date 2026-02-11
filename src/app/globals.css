@@ -736,6 +736,11 @@ button.ghost:hover:not(:disabled),
   z-index: 999;
 }
 
+.modal.modal-center {
+  display: grid;
+  place-items: center;
+}
+
 .modal-backdrop {
   position: absolute;
   inset: 0;
@@ -755,6 +760,8 @@ button.ghost:hover:not(:disabled),
 
 .progress-modal {
   max-width: 560px;
+  margin: 0;
+  width: min(560px, calc(100% - 32px));
 }
 
 .progress-label {

@@ -227,12 +227,14 @@ export default function Home() {
       const basePercent = (idx / totalFiles) * 100;
       const endPercent = ((idx + 1) / totalFiles) * 100;
       let visualPercent = basePercent;
-      const capPercent = Math.max(basePercent, endPercent - 5);
+      const capPercent = Math.max(basePercent, endPercent - 1);
       setMasterProgressLabel(`Processing ${idx + 1}/${totalFiles}: ${file.name}`);
       setMasterStatus(`Processing ${idx + 1}/${totalFiles}: ${file.name}`);
       setMasterProgressPercent(Math.round(basePercent));
       const ticker = window.setInterval(() => {
-        visualPercent = Math.min(capPercent, visualPercent + 1.5);
+        const remaining = capPercent - visualPercent;
+        const step = remaining > 20 ? 2 : remaining > 8 ? 1.1 : 0.4;
+        visualPercent = Math.min(capPercent, visualPercent + step);
         setMasterProgressPercent(Math.round(visualPercent));
       }, 220);
 
@@ -901,7 +903,7 @@ export default function Home() {
       )}
 
       {masterProgressOpen && (
-        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="masterProgressTitle">
+        <div className="modal modal-center" role="dialog" aria-modal="true" aria-labelledby="masterProgressTitle">
           <div className="modal-backdrop"></div>
           <div className="modal-content progress-modal">
             <div className="modal-header">
