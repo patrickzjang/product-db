@@ -68,6 +68,18 @@ function withCacheBuster(url: string, version: number): string {
   return url.includes("?") ? `${url}&v=${version}` : `${url}?v=${version}`;
 }
 
+async function fetchJsonWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    const payload = await res.json().catch(() => null);
+    return { res, payload };
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export default function Home() {
   const router = useRouter();
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -241,19 +253,20 @@ export default function Home() {
       try {
         const form = new FormData();
         form.append("file", file);
-        const res = await fetch("/api/master-upload", { method: "POST", body: form });
-        const payload = await res.json().catch(() => null);
+        const { res, payload } = await fetchJsonWithTimeout(
+          "/api/master-upload",
+          { method: "POST", body: form },
+          240000
+        );
         if (res.status === 401) {
           setIsAuthenticated(false);
           router.replace("/login");
           results.push({ file: file.name, status: "error", error: "Please login first" });
-          window.clearInterval(ticker);
           setMasterProgressPercent(Math.round(endPercent));
           break;
         }
         if (!res.ok) {
           results.push({ file: file.name, status: "error", error: payload?.error || res.statusText });
-          window.clearInterval(ticker);
           setMasterProgressPercent(Math.round(endPercent));
           continue;
         }
@@ -270,18 +283,23 @@ export default function Home() {
           archive_path: payload?.archive_path,
           state_warning: payload?.state_warning,
         });
-        window.clearInterval(ticker);
         setMasterProgressPercent(Math.round(endPercent));
       } catch (err: any) {
-        results.push({ file: file.name, status: "error", error: err?.message || "Unexpected error" });
-        window.clearInterval(ticker);
+        const message = err?.name === "AbortError"
+          ? "Request timed out after 4 minutes. Please check summary and refresh."
+          : err?.message || "Unexpected error";
+        results.push({ file: file.name, status: "error", error: message });
         setMasterProgressPercent(Math.round(endPercent));
+      } finally {
+        window.clearInterval(ticker);
       }
     }
 
+    setMasterProgressPercent(100);
+    setMasterProgressLabel("Finalizing...");
     setMasterResults(results);
     setMasterSummaryOpen(true);
-    setMasterProgressOpen(false);
+    setTimeout(() => setMasterProgressOpen(false), 220);
     const okCount = results.filter((r) => r.status !== "error").length;
     setMasterStatus(`Finished: ${okCount}/${results.length} file(s) processed.`);
     setMasterUploading(false);

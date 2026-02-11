@@ -98,6 +98,26 @@ function chunk<T>(arr: T[], size: number) {
   return out;
 }
 
+async function applyUpdatesFast(
+  supabase: any,
+  viewTable: string,
+  updates: Array<{ itemSku: string; patch: Record<string, unknown> }>
+) {
+  const batches = chunk(updates, 50);
+  for (const batch of batches) {
+    await Promise.all(
+      batch.map(async (op) => {
+        const { error } = await supabase
+          .schema("public")
+          .from(viewTable)
+          .update(op.patch)
+          .eq("ITEM_SKU", op.itemSku);
+        if (error) throw new Error(error.message);
+      })
+    );
+  }
+}
+
 function isMissingImportStateTableError(message: string) {
   const m = message.toLowerCase();
   return m.includes("master_import_state") && (m.includes("schema cache") || m.includes("could not find the table"));
@@ -340,14 +360,7 @@ export async function POST(req: Request) {
       const { error } = await supabase.schema("public").from(viewTable).insert(projected);
       if (error) throw new Error(error.message);
     }
-    for (const op of toUpdate) {
-      const { error } = await supabase
-        .schema("public")
-        .from(viewTable)
-        .update(op.patch)
-        .eq("ITEM_SKU", op.itemSku);
-      if (error) throw new Error(error.message);
-    }
+    await applyUpdatesFast(supabase, viewTable, toUpdate);
 
     const summary = {
       brand,
