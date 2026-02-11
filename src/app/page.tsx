@@ -93,6 +93,9 @@ export default function Home() {
   const [masterFiles, setMasterFiles] = useState<File[]>([]);
   const [masterStatus, setMasterStatus] = useState("Waiting for master file upload.");
   const [masterUploading, setMasterUploading] = useState(false);
+  const [masterProgressOpen, setMasterProgressOpen] = useState(false);
+  const [masterProgressPercent, setMasterProgressPercent] = useState(0);
+  const [masterProgressLabel, setMasterProgressLabel] = useState("");
   const [masterSummaryOpen, setMasterSummaryOpen] = useState(false);
   const [masterResults, setMasterResults] = useState<MasterUploadResult[]>([]);
 
@@ -212,10 +215,27 @@ export default function Home() {
   const uploadMasterFiles = async () => {
     if (masterFiles.length === 0 || masterUploading) return;
     setMasterUploading(true);
+    setMasterProgressOpen(true);
+    setMasterProgressPercent(0);
+    setMasterProgressLabel("Preparing upload...");
     setMasterStatus("Uploading master files...");
     const results: MasterUploadResult[] = [];
 
-    for (const file of masterFiles) {
+    for (let idx = 0; idx < masterFiles.length; idx += 1) {
+      const file = masterFiles[idx];
+      const totalFiles = masterFiles.length;
+      const basePercent = (idx / totalFiles) * 100;
+      const endPercent = ((idx + 1) / totalFiles) * 100;
+      let visualPercent = basePercent;
+      const capPercent = Math.max(basePercent, endPercent - 5);
+      setMasterProgressLabel(`Processing ${idx + 1}/${totalFiles}: ${file.name}`);
+      setMasterStatus(`Processing ${idx + 1}/${totalFiles}: ${file.name}`);
+      setMasterProgressPercent(Math.round(basePercent));
+      const ticker = window.setInterval(() => {
+        visualPercent = Math.min(capPercent, visualPercent + 1.5);
+        setMasterProgressPercent(Math.round(visualPercent));
+      }, 220);
+
       try {
         const form = new FormData();
         form.append("file", file);
@@ -225,10 +245,14 @@ export default function Home() {
           setIsAuthenticated(false);
           router.replace("/login");
           results.push({ file: file.name, status: "error", error: "Please login first" });
+          window.clearInterval(ticker);
+          setMasterProgressPercent(Math.round(endPercent));
           break;
         }
         if (!res.ok) {
           results.push({ file: file.name, status: "error", error: payload?.error || res.statusText });
+          window.clearInterval(ticker);
+          setMasterProgressPercent(Math.round(endPercent));
           continue;
         }
         results.push({
@@ -244,13 +268,18 @@ export default function Home() {
           archive_path: payload?.archive_path,
           state_warning: payload?.state_warning,
         });
+        window.clearInterval(ticker);
+        setMasterProgressPercent(Math.round(endPercent));
       } catch (err: any) {
         results.push({ file: file.name, status: "error", error: err?.message || "Unexpected error" });
+        window.clearInterval(ticker);
+        setMasterProgressPercent(Math.round(endPercent));
       }
     }
 
     setMasterResults(results);
     setMasterSummaryOpen(true);
+    setMasterProgressOpen(false);
     const okCount = results.filter((r) => r.status !== "error").length;
     setMasterStatus(`Finished: ${okCount}/${results.length} file(s) processed.`);
     setMasterUploading(false);
@@ -866,6 +895,24 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {masterProgressOpen && (
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="masterProgressTitle">
+          <div className="modal-backdrop"></div>
+          <div className="modal-content progress-modal">
+            <div className="modal-header">
+              <div id="masterProgressTitle" className="modal-title">Uploading Master Data</div>
+            </div>
+            <div className="modal-body">
+              <div className="progress-label">{masterProgressLabel}</div>
+              <div className="progress-track" aria-hidden="true">
+                <div className="progress-fill" style={{ width: `${masterProgressPercent}%` }}></div>
+              </div>
+              <div className="progress-percent">{masterProgressPercent}%</div>
             </div>
           </div>
         </div>
