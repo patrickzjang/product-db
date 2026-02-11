@@ -23,6 +23,17 @@ type ImageRef = { name: string; url: string };
 
 type Row = Record<string, any>;
 const HIDDEN_SEARCH_COLUMNS = new Set(["CBV", "VAT", "COST", "MONTH", "BARCODE"]);
+type MasterUploadResult = {
+  file: string;
+  brand?: string;
+  status: "imported" | "skipped" | "error";
+  total?: number;
+  inserted?: number;
+  updated?: number;
+  unchanged?: number;
+  reason?: string;
+  error?: string;
+};
 
 function getVisibleTableHeaders(row: Row): string[] {
   const headers = Object.keys(row).filter(
@@ -76,6 +87,11 @@ export default function Home() {
   const [isMobile, setIsMobile] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
+  const [masterFiles, setMasterFiles] = useState<File[]>([]);
+  const [masterStatus, setMasterStatus] = useState("Waiting for master file upload.");
+  const [masterUploading, setMasterUploading] = useState(false);
+  const [masterSummaryOpen, setMasterSummaryOpen] = useState(false);
+  const [masterResults, setMasterResults] = useState<MasterUploadResult[]>([]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 600px)");
@@ -188,6 +204,50 @@ export default function Home() {
       }
     }
     setStatus("Done.");
+  };
+
+  const uploadMasterFiles = async () => {
+    if (masterFiles.length === 0 || masterUploading) return;
+    setMasterUploading(true);
+    setMasterStatus("Uploading master files...");
+    const results: MasterUploadResult[] = [];
+
+    for (const file of masterFiles) {
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/master-upload", { method: "POST", body: form });
+        const payload = await res.json().catch(() => null);
+        if (res.status === 401) {
+          setIsAuthenticated(false);
+          router.replace("/login");
+          results.push({ file: file.name, status: "error", error: "Please login first" });
+          break;
+        }
+        if (!res.ok) {
+          results.push({ file: file.name, status: "error", error: payload?.error || res.statusText });
+          continue;
+        }
+        results.push({
+          file: file.name,
+          brand: payload?.brand,
+          status: payload?.status || "imported",
+          total: payload?.total,
+          inserted: payload?.inserted,
+          updated: payload?.updated,
+          unchanged: payload?.unchanged,
+          reason: payload?.reason,
+        });
+      } catch (err: any) {
+        results.push({ file: file.name, status: "error", error: err?.message || "Unexpected error" });
+      }
+    }
+
+    setMasterResults(results);
+    setMasterSummaryOpen(true);
+    const okCount = results.filter((r) => r.status !== "error").length;
+    setMasterStatus(`Finished: ${okCount}/${results.length} file(s) processed.`);
+    setMasterUploading(false);
   };
 
   const buildImageMap = (data: Row[], cacheVersion: number) => {
@@ -665,6 +725,35 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
+
+              <hr className="section-sep" />
+              <h2>Master Data Update</h2>
+              <p className="subtitle">Upload CSV/XLS/XLSX named like <code>MASTER_PAN_DDMMYY.csv</code>. New version only, merge mode (insert new + update changed fields).</p>
+              <div className="actions">
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  multiple
+                  onChange={(e) => setMasterFiles(Array.from(e.target.files || []))}
+                />
+                <button className="primary" disabled={masterFiles.length === 0 || masterUploading} onClick={uploadMasterFiles}>
+                  {masterUploading ? "Uploading..." : "Upload Master Files"}
+                </button>
+                <button className="ghost" disabled={masterUploading || masterFiles.length === 0} onClick={() => setMasterFiles([])}>
+                  Clear
+                </button>
+              </div>
+              <div className="status">{masterStatus}</div>
+              {masterFiles.length > 0 && (
+                <ul className="file-list">
+                  {masterFiles.map((f) => (
+                    <li key={f.name} className="file-item">
+                      <div className="name">{f.name}</div>
+                      <div className="status">{(f.size / 1024).toFixed(1)} KB</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
@@ -722,6 +811,32 @@ export default function Home() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {masterSummaryOpen && (
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="masterSummaryTitle">
+          <div className="modal-backdrop" onClick={() => setMasterSummaryOpen(false)}></div>
+          <div className="modal-content">
+            <div className="modal-header">
+              <div id="masterSummaryTitle" className="modal-title">Master Upload Summary</div>
+              <button className="ghost" onClick={() => setMasterSummaryOpen(false)}>Close</button>
+            </div>
+            <div className="modal-body">
+              <ul className="file-list">
+                {masterResults.map((r, i) => (
+                  <li key={`${r.file}-${i}`} className={`file-item ${r.status === "error" ? "error" : r.status === "imported" ? "ok" : ""}`}>
+                    <div className="name">{r.file}</div>
+                    <div className="status">
+                      {r.status === "imported" && `Imported (${r.brand || "-"}): total=${r.total || 0}, inserted=${r.inserted || 0}, updated=${r.updated || 0}, unchanged=${r.unchanged || 0}`}
+                      {r.status === "skipped" && `Skipped: ${r.reason || "Not newer version"}`}
+                      {r.status === "error" && `Error: ${r.error || "Unknown error"}`}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
